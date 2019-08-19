@@ -1,0 +1,7 @@
+Media
+Data
+outputVk
+__pycache__/
+*.py[cod]
+venv
+.idea
