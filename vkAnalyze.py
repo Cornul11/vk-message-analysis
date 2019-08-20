@@ -97,16 +97,44 @@ def read_file(file_name):
 def collect_data(text_to_analyze):
     # Initializing our variables
     number_of_messages = 0
+    date_dictionary = {}
+    time_dictionary = {}
+    person_dictionary = {}
     message_list = []
 
+    time_split = re.compile(r'([0-9]{4}.[0-9]{2}.[0-9]{2})( )([0-9]{1,2}:[0-9]{2}:[0-9]{2})')
     # Collecting data into variables
     for lines in text_to_analyze:
-        if str(lines.text):
-            print(lines.text)
-            message_list.append(lines.text)
+        if 'msg_body' in str(lines) and 'emoji' not in str(lines) and 'msg7' in str(lines):
+            from_data = lines.find_all("div", {"class": "from"})
+            from_data_as = from_data[0].find_all("a")
+            message_text = lines.find("div", {"class": "msg_body"}).text
+            time_found = time_split.search(from_data_as[1].text)
+            time_splitted = time_found[0].split(' ')[0].split('.')
+            formatted_date = time_splitted[2] + '/' + time_splitted[1] + '/' + time_splitted[0][-2:]
+            date_dictionary = add_to_dictionary(date_dictionary, formatted_date)
+            person_dictionary = add_to_dictionary(person_dictionary, from_data[0].find("b").text)
+            hour_splitted = time_found[0].split(' ')[1].split(':')[0]
+            time_dictionary = add_to_dictionary(time_dictionary, str(hour_splitted))
+            message_list.append(message_text)
             number_of_messages += 1
     word_dictionary = get_word_frequency(message_list)
-    return word_dictionary, number_of_messages
+    return time_dictionary, date_dictionary, person_dictionary, word_dictionary, number_of_messages
+
+
+''' <div id="msg71252" class="msg_item">
+        <div class="upic">
+            <img src="https://pp.userapi.com/c846324/v846324545/d4cc5/f7DhWUrGHBw.jpg?ava=1" alt="[photo_100]">
+        </div>
+        <div class="from">
+            <b>Alina Boschenko</b>
+            <a href="http://vk.com/id133248061" target="_blank">@id_133248061</a>
+            <a href="#msg71252">2019.05.16 16:52:51</a>
+        </div>
+        <div class="msg_body">1111111111</div>
+    </div>
+'''
+
 
 
 """
@@ -126,14 +154,16 @@ def driver():
     file_name_with_extension = get_file_name()
     file_name = file_split.search(file_name_with_extension)[1]
     text_to_analyze = BeautifulSoup(open(file_name_with_extension), "lxml")
-    my_divs = text_to_analyze.findAll("div", {"class": "msg_body"})
+    my_divs = text_to_analyze.findAll("div", {"class": "msg_item"})
 
     # Collect data
     '''date_dictionary, time_dictionary, person_dictionary, '''
-    word_dictionary, number_of_messages = collect_data(my_divs)
+    time_dictionary, date_dictionary, person_dictionary, word_dictionary, number_of_messages = collect_data(my_divs)
 
     # Sort all Dictionaries here
     word_dictionary = OrderedDict(word_dictionary.most_common(20))
+    person_dictionary = sort_dictionary(person_dictionary)
+    date_dictionary = sort_dictionary(date_dictionary)
 
     if not os.path.exists('outputVk'):
         os.mkdir('outputVk')
@@ -142,6 +172,24 @@ def driver():
         word_dictionary, 20, 'Uses',
         'Most used words in ' + str(number_of_messages) + ' messages in ' + file_name,
         'outputVk/' + file_name + 'word_frequency.png'
+    )
+
+    graphs.bar_graph(
+        person_dictionary, 20, 'Messages',
+        'Most active person in ' + file_name,
+        'outputVk/' + file_name + '-person_activity.png'
+    )
+
+    graphs.bar_graph(
+        date_dictionary, 20, 'Messages',
+        'Most Messages in ' + file_name,
+        'outputVk/' + file_name + '-date_activity.png'
+    )
+
+    graphs.histogram(
+        time_dictionary,
+        'Message Frequency Chart in ' + file_name,
+        'outputVk/' + file_name + '-time_activity.png'
     )
 
 
