@@ -5,6 +5,7 @@ import sys
 import graphs
 from collections import Counter, OrderedDict
 from bs4 import BeautifulSoup
+from progress.bar import Bar
 
 # To get rid of file extension when making graphs
 file_split = re.compile(r'(.*)(.[a-zA-Z0-9]{3,4})')
@@ -104,21 +105,26 @@ def collect_data(text_to_analyze):
 
     time_split = re.compile(r'([0-9]{4}.[0-9]{2}.[0-9]{2})( )([0-9]{1,2}:[0-9]{2}:[0-9]{2})')
     # Collecting data into variables
+    bar = Bar('Processing', max=len(text_to_analyze))
     for lines in text_to_analyze:
-        if 'msg_body' in str(lines) and 'emoji' not in str(lines) and 'msg7' in str(lines):
-            from_data = lines.find_all("div", {"class": "from"})
-            from_data_as = from_data[0].find_all("a")
-            message_text = lines.find("div", {"class": "msg_body"}).text
-            time_found = time_split.search(from_data_as[1].text)
-            time_splitted = time_found[0].split(' ')[0].split('.')
-            formatted_date = time_splitted[2] + '/' + time_splitted[1] + '/' + time_splitted[0][-2:]
-            date_dictionary = add_to_dictionary(date_dictionary, formatted_date)
-            person_dictionary = add_to_dictionary(person_dictionary, from_data[0].find("b").text)
-            hour_splitted = time_found[0].split(' ')[1].split(':')[0]
-            time_dictionary = add_to_dictionary(time_dictionary, str(hour_splitted))
-            message_list.append(message_text)
-            number_of_messages += 1
+        if 'msg_body' in str(lines) and 'emoji' not in str(lines):
+            if 'msg7' in str(lines) or 'msg8' in str(lines):
+                from_data = lines.find_all("div", {"class": "from"})
+                from_data_as = from_data[0].find_all("a")
+                message_text = lines.find("div", {"class": "msg_body"}).text
+                time_found = time_split.search(from_data_as[1].text)
+                time_splitted = time_found[0].split(' ')[0].split('.')
+                formatted_date = time_splitted[2] + '/' + time_splitted[1] + '/' + time_splitted[0][-2:]
+                date_dictionary = add_to_dictionary(date_dictionary, formatted_date)
+                person_dictionary = add_to_dictionary(person_dictionary, from_data[0].find("b").text)
+                hour_splitted = time_found[0].split(' ')[1].split(':')[0]
+                time_dictionary = add_to_dictionary(time_dictionary, str(hour_splitted))
+                message_list.append(message_text)
+                number_of_messages += 1
+        bar.next()
+    bar.finish()
     word_dictionary = get_word_frequency(message_list)
+    print(message_list[-1])
     return time_dictionary, date_dictionary, person_dictionary, word_dictionary, number_of_messages
 
 
@@ -153,7 +159,7 @@ def driver():
     # Read given file
     file_name_with_extension = get_file_name()
     file_name = file_split.search(file_name_with_extension)[1]
-    text_to_analyze = BeautifulSoup(open(file_name_with_extension), "lxml")
+    text_to_analyze = BeautifulSoup(open(file_name_with_extension), "html.parser")
     my_divs = text_to_analyze.findAll("div", {"class": "msg_item"})
 
     # Collect data
